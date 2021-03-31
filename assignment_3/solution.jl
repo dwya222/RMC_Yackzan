@@ -16,8 +16,8 @@ set_configuration!(mvis, configuration(state))
 #simple PD control
 function simple_PD!(τ, t, state)
     # set desired joint angle vector and gains
-    kd = diagm([20,80,20,80,20,20,20,20,20])
-    kp = diagm([50, 200, 50, 700, 50, 250, 50, 50, 50])
+    kd = 5*diagm([100, 100, 100, 100, 100, 100, 100, 100, 100])
+    kp = 10*diagm([100, 100, 100, 100, 100, 100, 100, 100, 100])
     # Compute a value for τ
     τ .= -kd * velocity(state) - kp * (configuration(state) - qd)
     # Saturate
@@ -31,6 +31,7 @@ end
 problem = ODEProblem(Dynamics(mechanism,simple_PD!), state, (0., 10.));
 # Solve ODE problem using Tsit5 scheme
 global base_sol = solve(problem, Tsit5());
+#setanimation!(mvis, base_sol; realtime_rate = 1.0);
 
 # PART 1 Trajectory function
 function traj(t::Float64)
@@ -45,8 +46,8 @@ end
 
 function control_PD!(τ, t, state)
     # set desired joint angle vector and gains
-    kd = diagm([20,40,20,40,20,20,20,20,20])
-    kp = diagm([500, 7000, 500, 2000, 500, 500, 500, 500, 500])
+    kd = 5*diagm([100, 100, 100, 100, 100, 100, 100, 100, 100])
+    kp = 10*diagm([100, 100, 100, 100, 100, 100, 100, 100, 100])
     # get joint angles, velocities and accelerations at t from traj function
     q, q_dot, q_ddot = traj(t)
     # Compute a value for τ
@@ -66,8 +67,8 @@ println("PD Controller norm of: $norm2")
 #setanimation!(mvis, sol2; realtime_rate = 1.0);
 
 function control_CTC!(τ, t, state)
-    kd = diagm([20,80,20,80,20,20,20,20,20])
-    kp = diagm([50, 200, 50, 700, 50, 250, 50, 50, 50])
+    kd = 5*diagm([100, 100, 100, 100, 100, 100, 100, 100, 100])
+    kp = 10*diagm([100, 100, 100, 100, 100, 100, 100, 100, 100])
     # get joint angles, velocities and accelerations at t from traj function
     q, q_dot, q_ddot = traj(t)
     # calculate M, C, G and aq double dot terms
@@ -75,10 +76,9 @@ function control_CTC!(τ, t, state)
     M = mass_matrix(state)
     dummy_state = deepcopy(state)
     zero_velocity!(dummy_state)
-    G = inverse_dynamics(dummy_state, velocity(dummy_state))
-    C = inverse_dynamics(state, velocity(state)) - G
+    C_G = dynamics_bias(state)
     # Compute a value for τ
-    τ .= M*aq_ddot + C + G
+    τ .= M*aq_ddot + C_G
     # Saturate
     act_sat = 50; # Actuator limits
     τ .= map( x -> x > act_sat ? act_sat : x,τ)
@@ -89,4 +89,6 @@ end
 problem3 = ODEProblem(Dynamics(mechanism,control_CTC!), state, (0., 10.));
 # Solve ODE problem using Tsit5 scheme
 sol3 = solve(problem3, Tsit5());
-# setanimation!(mvis, sol3; realtime_rate = 1.0);
+norm3 = norm(qd[1:7]-sol3(10)[1:7])
+println("CTC Controller norm of: $norm3")
+#setanimation!(mvis, sol3; realtime_rate = 1.0);
